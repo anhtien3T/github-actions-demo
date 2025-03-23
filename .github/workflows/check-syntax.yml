@@ -1,6 +1,5 @@
-name: Check Python Syntax
+name: Run Python Tests
 
-# Khi nào workflow chạy: mỗi lần push hoặc pull request vào nhánh main
 on:
   push:
     branches:
@@ -9,18 +8,22 @@ on:
     branches:
       - main
 
-# Các bước thực thi
 jobs:
-  syntax-check:
-    runs-on: ubuntu-latest # Máy ảo do GitHub cung cấp
+  test:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3 # Lấy mã nguồn từ repo
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x' # Dùng Python 3.x
+          python-version: '3.x'
 
-      - name: Check syntax
-        run: python -m py_compile hello.py # Kiểm tra cú pháp file Python
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run tests
+        run: pytest test_hi.py
