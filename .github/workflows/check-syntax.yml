@@ -1,4 +1,4 @@
-name: Run Python Tests and Outputs
+name: Run Python Tests and Check Server
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest # Dùng Windows để build .exe
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          pip install pytest requests pyinstaller
 
       - name: Run hello.py
         run: python hello.py
@@ -33,4 +33,23 @@ jobs:
           python -c "from hi import say_hi; print(say_hi('Grok'))"
 
       - name: Run tests
-        run: pytest test_hi.py
+        run: pytest test_hi.py --verbose
+
+      - name: Build hi.py into .exe
+        run: pyinstaller --onefile hi.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: hi-executable
+          path: dist/hi.exe
+
+      - name: Check personal server
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" ${{ secrets.SERVER_URL }}
+          if [ $? -eq 0 ]; then
+            echo "Server is up and running!"
+          else
+            echo "Failed to reach server"
+            exit 1
+          fi
