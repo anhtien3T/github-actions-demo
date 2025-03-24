@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    runs-on: windows-latest # Dùng Windows để build .exe
+    runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,6 +25,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest requests pyinstaller
 
+      - name: Install jq
+        run: |
+          curl -L -o jq.exe https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe
+          echo "$(pwd)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Run hello.py
         run: python hello.py
 
@@ -38,18 +43,36 @@ jobs:
       - name: Build hi.py into .exe
         run: pyinstaller --onefile hi.py
 
+      - name: Check if hi.exe exists
+        run: dir dist
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@c7d967e
         with:
           name: hi-executable
           path: dist/hi.exe
 
       - name: Check personal server
+        id: check-server
         run: |
           curl -s -o /dev/null -w "%{http_code}" ${{ secrets.SERVER_URL }}
           if [ $? -eq 0 ]; then
             echo "Server is up and running!"
+            echo "server_status=up" >> $GITHUB_OUTPUT
           else
             echo "Failed to reach server"
+            echo "server_status=down" >> $GITHUB_OUTPUT
             exit 1
           fi
+
+      - name: Comment on PR if server is down
+        if: failure() && github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ⚠️ Server check failed! The server at ${{ secrets.SERVER_URL }} is not responding. Please ensure `server.py` and ngrok are running.
+
+      - name: Get weather data
+        run: |
+          curl -s "http://api.openweathermap.org/data/2.5/weather?q=Hanoi&appid=${{ secrets.WEATHER_API_KEY }}&units=metric" | jq.exe -r '"Weather in Hanoi: \(.main.temp)°C, \(.weather[0].description)"'
